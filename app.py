@@ -19,7 +19,7 @@ from src.maze.LM_Data import *
 st.title('Learning Maze')
 head1, head2 = st.columns(2)
 head1.write('Soon to be aMazed...')
-head2.image('./data/app/fav.png')
+head2.image('Learning_Maze/data/app/fav.png')
 st.markdown('\n---')
 
 
