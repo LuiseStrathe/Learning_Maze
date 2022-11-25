@@ -1,14 +1,16 @@
 # THIS IS THE ENVIRONMENT FILE FOR THE LEARNING MAZE GAME
 
-### IMPORTS ###
+
+### IMPORTS ####################################################################
 import numpy as np
 import random
 
 
-### CLASSES ###
+### CLASS ######################################################################
+
 class Make_Map():
     
-    def __init__(self, width=6, sight=2, num_mummies=1, block_rate=0.2):
+    def __init__(self, width=6, sight=2, num_mummies=1, block_rate=0.1):
         
         ### initialize attributes
         self.width      = int(width)
@@ -30,6 +32,7 @@ class Make_Map():
                 self.blockers.append([b // self.width, b - (b // self.width) * self.width])
             solvable, self.distance = check_map(self.width, self.blockers)
             counter += 1
+        assert ~solvable, 'Map is not solvable. Please try again.'
         
         ### Set mummies
         mummy_options = np.array(range(4, (self.num_fields - 1)))
@@ -59,39 +62,47 @@ class Make_Map():
         self.view = view
 
         ### Info
-        print()
+        #print()
         print(f'New Map created with {self.width ** 2} ({self.width} x {self.width}) fields.')
-        print(f'{self.num_blocked} fields are blocked (X), {self.num_mummies} mummies (8) are creeping around.')
-        print('You (A) start at the top left corner and have to reach the bottom right corner (E).')
-        print('_____________________________________________________________')
 
 
 
-### FUNCTIONS ###
+### HELPER FUNCTIONS ###########################################################
 
 def check_map(width, blockers): # Check if map is possible to solve
     yes = [[0, 0]]          # start at initial player position
     checked_fields = yes    # all non-blocked fields that were not yet on path
     solvable = False        # flag to indicate if map is solvable
     distance = 0            # min distance from start to end in steps
+    new = []
 
     while (solvable == False) & (len(yes) > 0):
-        new = np.empty((0, 2), dtype=int)
-        for x, y in yes:
-            neighbors = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]
+        
+        for (x, y) in yes:
+            neighbors = list(([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]))
             
-            for xx, yy in neighbors:          
-                if (xx >= 0) & (xx < width) & (yy >= 0) & (yy < width):
-                    if (xx == yy) & (xx == width - 1): # exit found, is sovlable
+            inside_maze = lambda x, y: (x >= 0) & (y >= 0) & (x < width) & (y < width)
+            neighbors = [n for n in neighbors if inside_maze(n[0], n[1])]
+            neighbors = [n for n in neighbors if n not in checked_fields]
+            neighbors = [n for n in neighbors if n not in blockers]         
+            if np.isin([[width -1], [width - 1]], neighbors).any(): # exit found, is sovlable
+                        solvable = True         
+                                
+            for neigh in neighbors:
+                if neigh == [width - 1, width - 1]:
                         solvable = True
                         break
-                    elif ~(np.any(np.all(np.array([xx, yy]) == blockers, axis=1))) & \
-                        ~(np.any(np.all(np.array([xx, yy]) == checked_fields, axis=1))):  
-                        new = np.append(new, [[xx, yy]], axis=0) # new field reached
-        
-        yes = new
-        checked_fields = np.append(checked_fields, new, axis=0)  
+                else:
+                    new.append(neigh)
+                    checked_fields.append(neigh)               
+            break  
+
+        yes = list(new)
+        new =[]
         distance += 1
+        print(f'yes: {yes}')
+        
+    print('Map is solvable: ', solvable, distance)
         
     return solvable, distance
 
@@ -99,7 +110,7 @@ def check_map(width, blockers): # Check if map is possible to solve
 
 def find_moves(view, sight):
     
-    moves = ['wait']          # list of possible moves (wait, up, down, left, right)
+    moves = ['wait']       # list of possible moves (wait, up, down, left, right)
     move_targets = [' ']   # State of the target field for each move (empty, blocked, mummy, exit)
     
     # up, down, left, right
@@ -120,43 +131,54 @@ def find_moves(view, sight):
 
 
 
-def make_move(move, player, move_targets, fields, moves):
+def move_mummies(mummies, fields):
     
-    print(player)
-    ### Validate move
-    if move not in moves:
-        print('    You cannot move there!')
-        print(f'    Please select from {move_targets}')
-        result = 'failed'
+    counter = -1
+    stop = False
+    
+    print(f'Mummies are moving...')
+    
+    for mummy in mummies:
+        counter +=1
         
-    else:
-        directions = ['wait', 'up', 'down', 'left', 'right']
-        target = move_targets[directions.index(move)]
-
-        ### Check for win or loss
-        if target == 'E':    
-            result = 'win'
-        elif target == '8':
-            result = 'lose'
+        x, y = mummy
+        moves = [' ', 'ukn', 'ukn', 'ukn', 'ukn'] # to wait
+        
+        # Get options for this mummy
+        xy_max = fields.shape[0] - 1
+        if (x - 1 >= 0) & (x - 1 <= xy_max) & (y >= 0) & (y <= xy_max):
+            moves[1] = fields[x - 1, y]
+        if (x + 1 >= 0) & (x + 1 <= xy_max) & (y >= 0) & (y <= xy_max):
+            moves[2] = fields[x + 1, y]
+        if (x >= 0) & (x <= xy_max) & (y - 1 >= 0) & (y - 1 <= xy_max):
+            moves[3] = fields[x, y - 1]
+        if (x >= 0) & (x <= xy_max) & (y + 1 >= 0) & (y + 1 <= xy_max):
+            moves[4] = fields[x, y + 1]
+        
+        if 'A' in moves:
+            stop = True
+                    
+        else:
+            # Choose the move
+            move = random.sample([i for i in range(len(moves)) if moves[i] == ' '], 1)[0]
             
-        else: 
-            ### Move player
-            fields[player[0], player[1]] = ' '
+            # Update fields
+            fields[x, y] = ' '
+            if move == 0:                      # If no move is possible, stay put
+                fields[x, y] = '8'
+            elif move == 1:                     # mummy moves up
+                fields[x - 1, y] = '8'
+            elif move == 2:                     # mummy moves down
+                fields[x + 1, y] = '8'
+            elif move == 3:                     # mummy moves left
+                fields[x, y - 1] = '8'
+            elif move == 4:                     # mummy moves right 
+                fields[x, y + 1] = '8'
             
-            if move == 'up':
-                player = [player[0] - 1, player[1]]
-            elif move == 'down':
-                player = [player[0] + 1, player[1]]
-            elif move == 'left':
-                player = [player[0], player[1] - 1]
-            elif move == 'right':
-                player = [player[0], player[1] + 1]
-
-            fields[player[0], player[1]] = 'A'  
-            
-            result = f'New position: {player}' 
-
-    return player, fields, result               # result: 'win', 'failed', 'lose' or 'New position: [x, y]'
+    # update mummies
+    mummies = np.argwhere(fields == '8')
+    
+    return mummies, fields, stop
 
 
 
@@ -179,56 +201,51 @@ def update_view(player, sight, fields):
 
 
 
-def move_mummies(mummies, fields):
-    
-    counter = -1
-    stop = False
-    
-    print(f'Mummies are moving...')
-    
-    for mummy in mummies:
-        counter +=1
-        moves = np.full(4, 'N/A')
-        x, y = mummy
+### MAIN FUNCTIONS ##############################################################
 
-        # Get options for this mummy
-        xy_max = fields.shape[0] - 1
-        if (x - 1 >= 0) & (x - 1 <= xy_max) & (y >= 0) & (y <= xy_max):
-            moves[0] = fields[x - 1, y]
-        if (x + 1 >= 0) & (x + 1 <= xy_max) & (y >= 0) & (y <= xy_max):
-            moves[1] = fields[x + 1, y]
-        if (x >= 0) & (x <= xy_max) & (y - 1 >= 0) & (y - 1 <= xy_max):
-            moves[2] = fields[x, y - 1]
-        if (x >= 0) & (x <= xy_max) & (y + 1 >= 0) & (y + 1 <= xy_max):
-            moves[3] = fields[x, y + 1]
-        
-        if 'A' in moves:
-            stop = True
-            print('It\'s a trap! A mummy cought you! X.X')
-                    
-        else:
-            # Choose the move
-            move = random.sample([i for i in range(len(moves)) if moves[i] == ' '], 1)[0]
-            
-            # Update fields
-            fields[mummy[0], mummy[1]] = ' '
-            if move == []:                      # If no move is possible, stay put
-                fields[mummy[0], mummy[1]] = '8'
-            elif move == 0:                     # mummy moves up
-                fields[x - 1, y] = '8'
-            elif move == 1:                     # mummy moves down
-                fields[x + 1, y] = '8'
-            elif move == 2:                     # mummy moves left
-                fields[x, y - 1] = '8'
-            elif move == 3:                     # mummy moves right 
-                fields[x, y + 1] = '8'
-            
-    # update mummies
-    mummies = np.argwhere(fields == '8')
-    if stop:
-        print('You lost! X.X')
+def make_move(My_Map, move):
     
-    return mummies, fields, stop
+    moves, move_targets = find_moves(My_Map.view, My_Map.sight)
+    
+    ### Validate move
+    if move not in moves:
+        result = 'failed'
+        
+    else:
+        directions = ['wait', 'up', 'down', 'left', 'right']
+        target = move_targets[directions.index(move)]
+
+        ### Check for win or loss
+        if target == 'E':    
+            result = 'win'
+        elif target == '8':
+            result = 'lose'
+            
+        else: ### Move player
+            My_Map.fields[My_Map.player[0], My_Map.player[1]] = ' '
+            
+            if move == 'up':
+                My_Map.player = [My_Map.player[0] - 1, My_Map.player[1]]
+            elif move == 'down':
+                My_Map.player = [My_Map.player[0] + 1, My_Map.player[1]]
+            elif move == 'left':
+                My_Map.player = [My_Map.player[0], My_Map.player[1] - 1]
+            elif move == 'right':
+                My_Map.player = [My_Map.player[0], My_Map.player[1] + 1]
+
+            My_Map.fields[My_Map.player[0], My_Map.player[1]] = 'A'  
+            
+            result = f'New position: {My_Map.player}' 
+    
+    # move mummies
+    if result not in ['win', 'lose']:
+        My_Map.mummies, My_Map.fields, stop = move_mummies(My_Map.mummies, My_Map.fields)
+        if stop: result = 'lose'
+        
+    My_Map.view = update_view(My_Map.player, My_Map.sight, My_Map.fields)
+
+    return My_Map, result               # result: 'win', 'failed', 'lose' or 'New position: [x, y]'
+
 
 
 

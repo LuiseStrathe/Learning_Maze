@@ -1,7 +1,8 @@
 # HERE IMAGES OF THE MAPS ARE GENERATED
 
 ### IMPORTS ###
-
+import sys
+sys.path.insert(1, "/home/luise/Documents/DataScience/Projects/Learning_Maze/Learning_Maze")
 from PIL import Image
 import numpy as np
 
@@ -11,11 +12,11 @@ import numpy as np
 def create_image(view):
     
     # open tempate images
-    im_player = Image.open('images/player.png')
-    im_mummy = Image.open('images/mummy.png')
-    im_floor = Image.open('images/floor.png')
-    im_exit = Image.open('images/exit.png')  
-    im_wall = Image.open('images/wall.png')
+    im_player = Image.open('data/input/player.png') 
+    im_mummy = Image.open('data/input/mummy.png')
+    im_floor = Image.open('data/input/floor.png')
+    im_exit = Image.open('data/input/exit.png')  
+    im_wall = Image.open('data/input/wall.png')
     
     imgs = []
     for row in range(view.shape[0]):

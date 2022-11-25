@@ -48,5 +48,5 @@ validators==0.20.0
 watchdog==2.1.9
 yarg==0.1.9
 zipp==3.10.0
-gunicorn==20.1.0
+
 

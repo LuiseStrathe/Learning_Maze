@@ -1,14 +1,56 @@
-# THIS ARE THE ROUTINES FILE FOR THE LEARNING MAZE GAME
+# Run this to play the LEARNING MAZE GAME
 
 ### IMPORTS ###
+import sys
+sys.path.insert(1, "/home/luise/Documents/DataScience/Projects/Learning_Maze/Learning_Maze")
+from src.maze.LM_Data import *
+from src.maze.LM_Environment import *
 
-from LM_Environment import *
-import re
+### MAIN ###
+
+### Get input for the setup
+# width, height, sight, num_mummies, block_rate = custom_input()
+width = 20
+sight = 3
+num_mummies = 3
+block_rate = 0.2
+
+### Create a Maze
+My_Map = Make_Map(width=width, sight=sight, num_mummies=num_mummies, block_rate=block_rate)
+
+### Play the game
+results = []
+result = 'start'
+counter = 0
+stop = False
 
 
+while (result not in ['win', 'lose', 'failed']):
+    create_image(My_Map.view).show()
+    print('You can move, wait or quit.')
+    move = input('Which direction do you want to go?')
+    if move == 'quit':
+        result = 'lose'
+        print('You quit the game.')
+    else:
+        MyMap, result = make_move(My_Map, move)
+        results.append(result)
+        counter += 1
+    print(move)
 
-### FUNCTIONS ###
 
+### End of game
+print('==============================================================')
+print('End of game! You {result}')
+print()
+create_image(My_Map.fields).show()
+print()
+print(f'This happened in {counter} turns:')
+for n in results:
+    print('     '+n)
+       
+    
+    
 def custom_input():
     max_entry_fails = 4
 
@@ -82,74 +124,3 @@ def custom_input():
         entry += 1
 
     return width, sight, num_mummies, block_rate
-
-
-#######################
-
-
-def Start_a_Game(width, sight, num_mummies, block_rate):
-    print('_____________________________________________________________')
-    print()
-    print('Welcome to the Mummy Maze!')
-    print()
-    print('You are the adventurer and you have to find your way out of the maze (field E).')
-    print(f'But beware! There are {num_mummies} mummies in the maze who will try to catch you.')
-    print()
-    
-    # Initialize map
-    Start_Map = Make_Map(width=width, sight=sight, num_mummies=num_mummies, block_rate=block_rate)
-    
-    return Start_Map
-
-
-#######################
-    
-    
-def Make_a_Move(My_Map): 
-    
-    stop = False            # If True, the game has ended
-    result = 'None'
-    moves, move_targets = find_moves(My_Map.view, My_Map.sight)
-    
-    print('_____________________________________________________________')
-    print()
-    print('You (A) are here:')
-    print(My_Map.view)
-    print()
-    print(f'Your turn to move!')    
-    print()
-    
-    while result == 'None':
-        
-        IN = input(f'    Where do you want to go? \n    Choose from {moves} (or write quit to give up).')
-
-        if str(IN) == 'quit':
-            stop = True
-            result = 'quit'
-            print('You gave up. Better luck next time!')
-            break
-        elif IN not in moves:
-            print('    You can not move this way. Try again.')
-        
-        else: # Player moves
-            move = IN
-            My_Map.player, My_Map.fields, result = make_move(move, My_Map.player, move_targets, My_Map.fields, moves)
-            print(f'You moved {move} to the location {My_Map.player}.')
-            
-            if result == 'win':
-                stop = True
-                print('You found the exit! Congrats, you won!')
-                break
-            
-            else: # Mummies move
-                My_Map.mummies, My_Map.fields, stop = move_mummies(My_Map.mummies, My_Map.fields)
-                print(f'The mummies moved.')
-                if stop:
-                    print('Game over! \nA mummy catches you.')
-                    print(My_Map.fields)
-                    result = 'lose'
-                    break
-            
-                else: My_Map.view = update_view(My_Map.player, My_Map.sight, My_Map.fields)
-    
-    return My_Map, result, stop
