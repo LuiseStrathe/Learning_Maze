@@ -9,7 +9,7 @@ import subprocess
 from PIL import Image
 import pathlib
 import sys
-sys.path.insert(1, "/app/Learning_Maze")
+sys.path.insert(1, "/app/learning_maze/")
 from src.maze.LM_Environment import *
 from src.maze.LM_Data import *
 
