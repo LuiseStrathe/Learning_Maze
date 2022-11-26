@@ -124,16 +124,17 @@ if st.session_state.My_Map != []:
 
     
 ### PRESENT RESULTS ###
-if st.session_state['result'] == 'win':
+if st.session_state.result == 'win':
     st.balloons()
-    st.write('You won, cudos!')
+    st.success('You won, cudos!')
     st.image(full_map)
-
+    st.session_state.result = []
+    st.session_state.My_Map = []
     
-elif st.session_state['result'] == 'lose':    
-    st.write('You lost!  X_x')
-    st.snowflake()
+elif st.session_state.result == 'lose':    
+    st.error('You lost!  X_x')
+    st.snow()
     st.image(full_map)
-    
-
+    st.session_state.result = []
+    st.session_state.My_Map = []
 
