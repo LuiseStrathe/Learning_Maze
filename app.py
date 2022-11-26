@@ -9,7 +9,7 @@ import subprocess
 from PIL import Image
 import pathlib
 import sys
-sys.path.insert(1, "/app/learning_maze/")
+#sys.path.insert(1, "/app/learning_maze/")
 from src.maze.LM_Environment import *
 from src.maze.LM_Data import *
 
@@ -18,7 +18,7 @@ from src.maze.LM_Data import *
 st.title('Learning Maze')
 head1, head2 = st.columns(2)
 head1.write('Soon to be aMazed...')
-head2.image('data/app/fav.png')
+head2.image('/data/app/fav.png')
 st.markdown('\n---')
 
 
