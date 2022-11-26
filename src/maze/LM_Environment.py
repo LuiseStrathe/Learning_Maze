@@ -100,9 +100,8 @@ def check_map(width, blockers): # Check if map is possible to solve
         yes = list(new)
         new =[]
         distance += 1
-        print(f'yes: {yes}')
         
-    print('Map is solvable: ', solvable, distance)
+    #print('Map is solvable: ', solvable, distance)
         
     return solvable, distance
 
