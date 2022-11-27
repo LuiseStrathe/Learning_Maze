@@ -63,7 +63,7 @@ class Make_Map():
 
         ### Info
         #print()
-        print(f'New Map created with {self.width ** 2} ({self.width} x {self.width}) fields.')
+        print(f'New Map created with {self.width ** 2} ({self.width} x {self.width}) fields, min {self.distance} steps.')
 
 
 
@@ -77,7 +77,7 @@ def check_map(width, blockers): # Check if map is possible to solve
     new = []
 
     while (solvable == False) & (len(yes) > 0):
-        
+        distance += 1
         for (x, y) in yes:
             neighbors = list(([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]))
             
@@ -99,7 +99,7 @@ def check_map(width, blockers): # Check if map is possible to solve
 
         yes = list(new)
         new =[]
-        distance += 1
+        
         
     #print('Map is solvable: ', solvable, distance)
         
@@ -135,7 +135,7 @@ def move_mummies(mummies, fields):
     counter = -1
     stop = False
     
-    print(f'Mummies are moving...')
+    #print(f'Mummies are moving...')
     
     for mummy in mummies:
         counter +=1

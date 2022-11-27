@@ -1,8 +1,5 @@
 # individual
 tmp/
-data/records
-
-
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
