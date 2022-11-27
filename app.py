@@ -7,6 +7,8 @@ import pandas as pd
 import emoji
 from datetime import datetime
 
+from supabase import create_client, Client
+
 from src.maze.LM_Environment import *
 from src.maze.LM_Data import *
 
@@ -18,6 +20,17 @@ if 'result' not in st.session_state:
     st.session_state.result = 'empty'   
 full_map = []
 map_record = []
+
+# Initialize connection to supabase for session records
+# Uses st.experimental_singleton to only run once.
+
+def init_connection():
+    url = st.secrets["supabase_url"]
+    key = st.secrets["supabase_key"]
+    return create_client(url, key)
+supabase: Client = init_connection()
+
+
 
 
 
@@ -141,14 +154,16 @@ def close_game():
             All records will determine human level performance and compared to machine performannce.\n\
             No personal data is used or stored.')
     
-    # add to records
-    data = (datetime.now(), 
-            st.session_state.My_Map.width, st.session_state.My_Map.sight, 
-            st.session_state.My_Map.num_mummies, st.session_state.My_Map.block_rate, 
-            st.session_state.result, st.session_state.counter)
-    with open('data/records/app_records_00.csv', 'a') as f:
-        rec = pd.DataFrame({data}, index=[0])    
-        rec.to_csv(f, header=False)    
+    # add to records on supabase
+    data = {'time': str(datetime.now()), 
+            'width': st.session_state.My_Map.width, 
+            'sight': st.session_state.My_Map.sight, 
+            'num_mummies': st.session_state.My_Map.num_mummies, 
+            'block_rate': int(st.session_state.My_Map.block_rate*100), 
+            'result': st.session_state.result, 
+            'num_steps': st.session_state.counter}
+        
+    supabase.table('lm_app_records_00').insert(data).execute() 
     
     # empty states
     st.session_state.result = []

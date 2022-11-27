@@ -1,5 +1,7 @@
 # individual
 tmp/
+data/records
+.streamlit
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
