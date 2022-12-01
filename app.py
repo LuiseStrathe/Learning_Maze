@@ -82,7 +82,7 @@ if init1.button(emoji.emojize(':alien_monster: Start a new random game!')):
         st.session_state['My_Map'] = [] 
     st.session_state.result = 'new'  
     st.session_state.counter = 0
-    width, sight, num_mummies, block_rate = get_random_params(20, 6, 2, 6, 1, 30, 10)
+    width, sight, num_mummies, block_rate = get_random_params(20, 6, 2, 40, 1, 30, 15)
     st.session_state.My_Map = Make_Map(width, sight, num_mummies, block_rate)    
     
 st.markdown('\n---')
