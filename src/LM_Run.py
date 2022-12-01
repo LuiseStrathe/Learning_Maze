@@ -6,6 +6,8 @@ sys.path.insert(1, "/home/luise/Documents/DataScience/Projects/Learning_Maze/Lea
 from src.maze.LM_Data import *
 from src.maze.LM_Environment import *
 
+
+
 ### MAIN ###
 
 ### Get input for the setup

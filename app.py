@@ -37,12 +37,14 @@ supabase: Client = init_connection()
 ### HEAD #######################################################################
 st.title('Learning Maze')
 head1, head2 = st.columns(2)
-head1.write('Play this game and solve the maze on many levels of difficulty!')
-head1.write('Soon, human and machine performance of playing it will be compared. \n\
+head1.write('**Play this game and solve the maze on many levels of difficulty!**')
+head1.write('The performance of you and your fellow humans will compete against reinforcement models (AI). \n\
             Do you outperform a machine?')
-head2.image('data/app/fav.png')
-head2.write(emoji.emojize(':eyes: Visit my Learning Maze repo to get more background info:'))
-head2.markdown('https://github.com/LuiseStrathe/Learning_Maze', unsafe_allow_html=True)
+
+with head2.expander('About'):
+    st.image('data/app/fav.png')
+    st.write(emoji.emojize(':eyes: *Visit my Learning Maze repo to get more background info:*'))
+    st.markdown('*https://github.com/LuiseStrathe/Learning_Maze*', unsafe_allow_html=True)
 
 st.markdown('\n---')
 
@@ -51,16 +53,28 @@ st.markdown('\n---')
 ### INIT GAME PARAMS ###########################################################
 init1, init2 = st.columns(2) 
 
-with init2.expander("Adapt the difficulty here"):
+with init2.expander("Start a custom game"):
+    
     width = st.slider('How big is the Maze?', 4, 40, 6)
     sight = st.slider('How far should you see?', 1, 4, 2)
     block_rate = st.slider('How much of the field is blocked (in %)?', 5, 35, 10)
     max_mummies = (width**2) * (1-block_rate/100) * 0.15
-    num_mummies = st.slider('How many mummies are in the maze?', 1, max(2, int(max_mummies)), 2)
+    num_mummies = st.slider('How many mummies are in the maze?', 1, max(2, int(max_mummies)), 2)  
+      
+    if st.button(emoji.emojize(':alien_monster: Start a custom game!')):
+        # create new states for this match
+        for key in st.session_state.keys():
+            del st.session_state[key]
+        if 'My_Map' not in st.session_state:
+            st.session_state['My_Map'] = [] 
+        st.session_state.result = 'new'  
+        st.session_state.counter = 0
+        st.session_state.My_Map = Make_Map(width, sight, num_mummies, block_rate/100)    
+
 
 
 ### START NEW GAME ###
-if init1.button(emoji.emojize(':alien_monster: Start a new game!')):
+if init1.button(emoji.emojize(':alien_monster: Start a new random game!')):
     # create new states for this match
     for key in st.session_state.keys():
         del st.session_state[key]
@@ -68,7 +82,8 @@ if init1.button(emoji.emojize(':alien_monster: Start a new game!')):
         st.session_state['My_Map'] = [] 
     st.session_state.result = 'new'  
     st.session_state.counter = 0
-    st.session_state.My_Map = Make_Map(width, sight, num_mummies, block_rate/100)    
+    width, sight, num_mummies, block_rate = get_random_params(20, 6, 2, 6, 1, 30, 10)
+    st.session_state.My_Map = Make_Map(width, sight, num_mummies, block_rate)    
     
 st.markdown('\n---')
 
@@ -109,7 +124,7 @@ if (st.session_state.My_Map != []) & (st.session_state.result not in ['win', 'lo
  
     # insert display above buttons
     im = st.container()  
-    st.write(st.session_state.result)
+    
     # buttons to move
     cmd1, cmd2, cdm3 = st.columns(3)
     if cmd1.button(emoji.emojize(':arrow_up:  up')): full_map, map_record = moving('up')
@@ -150,8 +165,7 @@ def close_game():
     res2.text(f'- Number of mummies: {st.session_state.My_Map.num_mummies}')
     res2.text(f'- Block rate: {st.session_state.My_Map.block_rate*100}%')
     
-    st.info('Your game performance was recorded. \n\
-            All records will determine human level performance and compared to machine performannce.\n\
+    st.info('Your game performance was recorded to determine human level performance. \n\
             No personal data is used or stored.')
     
     # add to records on supabase
@@ -172,10 +186,41 @@ def close_game():
 
 if st.session_state.result == 'win':
     st.balloons()
-    st.success('You won, cudos!')
+    st.success('You won, kudos!')
     close_game()
 
 elif st.session_state.result == 'lose':    
     st.error('You lost!  X_x')
     st.snow()
     close_game()
+    
+    
+    
+    
+### INFO MODEL VS HUMAN ###
+st.markdown('\n---\n') 
+st.subheader('Human vs. Machine Agents')
+st.write('Several Q-Learning models were trained to play the game. \
+    They get no more information than human players and learn to solve the maze from the same perspective (as agent a.k.a. \"explorer\").')
+
+st.write('**Current win rates:**')
+
+num_human = len(pd.read_json(supabase.table('lm_app_records_00').select('result').execute().json(), orient='records'))
+human = len(pd.read_json(supabase.table('lm_app_records_00').select('result').eq('result', 'win').execute().json(), orient='records')) / num_human
+
+col1, col2, col3 = st.columns(3)
+col1.metric(label='**Humans**', value=f'{round(human * 100)} %', delta = 0)
+col1.write(f'*This is the win rate of all human players so far*')
+
+rate = 2
+delta = round(-(human - rate / 100) / human * 100)
+col2.metric(label='**Random Baseline**', value=f'{rate} %', delta = f'{delta} % from human level')
+col2.write(f'*This is the win rate of a fully random agent*')
+
+rate = 41
+delta = round(-(human - rate / 100) / human * 100)
+col3.metric(label='**Explored Q1**', value=f'{rate} %', delta = f'{delta} % from human level')
+col3.write(f'*This is the win rate of a Q-Learning agent*')
+col3.write(f'*(The model only explored q-table with fully random games & sight of 1)*')
+
+

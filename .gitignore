@@ -1,7 +1,11 @@
 # individual
 tmp/
-data/records
+data/app/records
+data/q_learn
+data/naive_BL
+data/tmp
 .streamlit
+data/records
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

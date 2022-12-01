@@ -4,13 +4,14 @@
 ### IMPORTS ####################################################################
 import numpy as np
 import random
+import time
 
 
 ### CLASS ######################################################################
 
 class Make_Map():
     
-    def __init__(self, width=6, sight=2, num_mummies=1, block_rate=0.1):
+    def __init__(self, width=10, sight=2, num_mummies=1, block_rate=0.1):
         
         ### initialize attributes
         self.width      = int(width)
@@ -23,16 +24,14 @@ class Make_Map():
         self.player     = [0, 0]
                 
         ### Set blockers
-        counter = 0
         solvable = False
-        while ~solvable & (counter < 50):
+        while ~solvable:
             self.blocked_fields = sorted(np.random.choice((self.num_fields - 5), self.num_blocked, replace=False) + 2)
             self.blockers = []
             for b in self.blocked_fields:
                 self.blockers.append([b // self.width, b - (b // self.width) * self.width])
             solvable, self.distance = check_map(self.width, self.blockers)
-            counter += 1
-        assert ~solvable, 'Map is not solvable. Please try again.'
+            if solvable: break
         
         ### Set mummies
         mummy_options = np.array(range(4, (self.num_fields - 1)))
@@ -61,13 +60,20 @@ class Make_Map():
                 view[self.sight + h, self.sight + w] = self.fields[h, w]
         self.view = view
 
-        ### Info
-        #print()
-        print(f'New Map created with {self.width ** 2} ({self.width} x {self.width}) fields, min {self.distance} steps.')
+        #print(f'New Map created with {self.width ** 2} ({self.width} x {self.width}) fields, min {self.distance} steps.')
 
 
 
 ### HELPER FUNCTIONS ###########################################################
+
+
+def get_random_params(wmax, wmin, sight, mmax, mmin, bmax, bmin):
+    width = random.randint(wmin, wmax)
+    sight = sight
+    mummies = random.randint(mmin, mmax)
+    blockers = random.randint(bmin, bmax) / 100
+    return width, sight, mummies, blockers
+
 
 def check_map(width, blockers): # Check if map is possible to solve
     yes = [[0, 0]]          # start at initial player position
@@ -75,36 +81,33 @@ def check_map(width, blockers): # Check if map is possible to solve
     solvable = False        # flag to indicate if map is solvable
     distance = 0            # min distance from start to end in steps
     new = []
+    max_distance = width * 2 * 4
 
-    while (solvable == False) & (len(yes) > 0):
+    while (solvable == False) & (len(yes) > 0) & (distance < max_distance):
         distance += 1
-        for (x, y) in yes:
+        
+        for i in range(len(yes)):
+            x, y = yes[i]
             neighbors = list(([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]))
             
             inside_maze = lambda x, y: (x >= 0) & (y >= 0) & (x < width) & (y < width)
             neighbors = [n for n in neighbors if inside_maze(n[0], n[1])]
             neighbors = [n for n in neighbors if n not in checked_fields]
             neighbors = [n for n in neighbors if n not in blockers]         
-            if np.isin([[width -1], [width - 1]], neighbors).any(): # exit found, is sovlable
-                        solvable = True         
-                                
+      
             for neigh in neighbors:
                 if neigh == [width - 1, width - 1]:
                         solvable = True
                         break
                 else:
                     new.append(neigh)
-                    checked_fields.append(neigh)               
-            break  
+                    checked_fields.append(neigh)                
 
         yes = list(new)
         new =[]
-        
-        
-    #print('Map is solvable: ', solvable, distance)
-        
-    return solvable, distance
 
+    #print('Map is solvable: ', solvable, distance)        
+    return solvable, distance
 
 
 def find_moves(view, sight):
@@ -127,7 +130,6 @@ def find_moves(view, sight):
         moves.append('right')
     
     return moves, move_targets
-
 
 
 def move_mummies(mummies, fields):
@@ -178,7 +180,6 @@ def move_mummies(mummies, fields):
     mummies = np.argwhere(fields == '8')
     
     return mummies, fields, stop
-
 
 
 def update_view(player, sight, fields):
