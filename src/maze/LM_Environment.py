@@ -68,15 +68,15 @@ class Make_Map():
 
 
 def get_random_params(wmax, wmin, sight, mmax, mmin, bmax, bmin):
-    width = random.randint(wmin, wmax + 1)
+    width = random.randint(wmin, wmax)
     sight = sight
-    blockers = random.randint(bmin, bmax + 1) / 100
+    blockers = random.randint(bmin, bmax) / 100
     
     open_fields = (width ** 2) * (1 - blockers)
-    mmin, mmax = max(mmin, int(0.04 * open_fields)), min(mmax, int(0.18 * open_fields))
+    mmin, mmax = max(mmin, int(0.02 * open_fields)), min(mmax, int(0.18 * open_fields))
     if mmin > mmax:
-        mmax = mmin
-    mummies = random.randint(mmin, mmax + 1)
+        mmin = mmax
+    mummies = random.randint(mmin, mmax)
 
     return width, sight, mummies, blockers
 

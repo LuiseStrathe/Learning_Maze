@@ -11,6 +11,9 @@ from itertools import product
 from datetime import datetime
 from tqdm import tqdm
 import sys
+import itertools
+from itertools import product
+from multiprocessing import Queue
 
 sys.path.insert(1, "/home/luise/Documents/DataScience/Projects/Learning_Maze/Learning_Maze")
 from src.maze.LM_Data import *
@@ -21,16 +24,23 @@ from src.maze.LM_Environment import *
 
 def init_q_table(sight, cols):
     
-    opts = ' XE8'
     length = (2 * sight + 1) ** 2 - 1
-    states = ['_' + s + '_' for s in list(map(''.join, product(' X8E', repeat = length))) if (len(str(s)) == length)] 
-    states = [i for i in states if i.count('E') <= 1]
-    states = [i for i in states if i.count('X') <= length - sight]
-    states = [i for i in states if 'E' not in i[:length//2]]
+    a_string = ' X'
+    print('Listing potential states: (options, length)  _', a_string + '_', length)
+    portion = list(product(a_string, repeat = length))
+    states = [''.join(item) for item in portion]
+    states = ['_' + s + '_' for s in states] 
     
+    states = [i for i in states if i.count('X') <= length - sight]
+    states = [i for i in states if i.count('8') <= length - sight * 3]
+    #states = [i for i in states if i.count('E') <= 1]
+    #states = [i for i in states if 'E' not in i[:length//2]]
+
     q_table = pd.DataFrame(columns=cols)
-    q_table['state'] = states
+    q_table.state = states
     q_table.iloc[:, 1:] = 0    # initialize scores and numbers with 0
+    q_table.reset_index(drop=True)
+    print('Initial q_tab size: ', q_table.shape)
     
     return q_table
 
@@ -38,10 +48,10 @@ def init_q_table(sight, cols):
 def get_score(counter, result, width):
     score = 0
     if result == 'win':
-        min_distance = (width - 1) ** 2
-        score = min_distance ** 2 / counter    # rel speed to solve
-        score = score * 100 / counter     # scale to 100 & per step
-    return score 
+        min_distance = (width - 1) * 2
+        score = 0.7 + (0.3 * min_distance / counter)    # max poisitive score = 1   
+
+    return score   # score per step [-1, 1]
 
 
 def get_state(My_Map):
@@ -55,47 +65,28 @@ def get_state(My_Map):
 
 
 
-### PLAY & Q ###
+### PLAY R (random) & Q (with q policy) ###
 
-def q_play(policy, width, sight, mummies, blockers, noise_range=.5):
+def r_play(width, sight, mummies, blockers):
+    
     My_Map = Make_Map(width, sight, mummies, blockers)
-
-    ### Play the game
     options = ['wait', 'up', 'down', 'left', 'right']
-    opt_qcols = ['sco_wait', 'sco_up', 'sco_down', 'sco_left', 'sco_right']
     result = 'start'
-    results = []
     counter = 0
     states = []
     actions = []
     
     while (result not in ['win', 'lose']):
-        
         state = get_state(My_Map)
-        if isinstance(policy, str):
-            if policy == 'random':
-                move = random.choice(options)
-        else:
-            if state not in policy['state'].values: # if state not in q_table
-                move = random.choice(options)
-            else:
-                rands = (np.random.rand(5) - .5) * noise_range   # insert random noise to not end in loops, range(-.5, .5) * noise_range
-                pvals = policy.loc[policy['state'] == state, opt_qcols].values[0]
-                pvals /= max(pvals) - min(pvals)  # normalize to range of 1
-                pvals = pvals + rands
-                move = options[np.argmax(pvals)]
-            #print(f'state: {state}, pvals: {pvals}, move: {move}')
-            
+        move = random.choice(options)
         states.append(state)
         actions.append(move)
         counter += 1
-        My_Map, result = make_move(My_Map, move)
-        
+        My_Map, result = make_move(My_Map, move)   
+      
     ### End of game
     score = get_score(counter, result, width) 
-
-    # game_data for q_table updates
-    game_data = pd.DataFrame({'state': states, 'action': actions, 'steps': 1}).groupby(['state', 'action']).count().reset_index()
+    game_data = pd.DataFrame({'state': states, 'action': actions, 'steps': 1}).groupby(['state', 'action']).count().fillna(0).reset_index()
     game_data = game_data.pivot_table(index='state', columns=['action'], values='steps', fill_value=0).reset_index()
     game_data['score'] = score
     for opt in options:
@@ -114,42 +105,176 @@ def q_play(policy, width, sight, mummies, blockers, noise_range=.5):
     return record, game_data
 
 
-def run_random_games(n, wmax, wmin, sight, mmax, mmin, bmax, bmin):
+def q_play(policy, width, sight, mummies, blockers, noise_range=.5):
+    My_Map = Make_Map(width, sight, mummies, blockers)
+
+    ### Play the game
+    options = ['wait', 'up', 'down', 'left', 'right']
+    result = 'start'
+    counter = 0
+    states = []
+    actions = []
+    timeout_count = My_Map.width ** 2 * 20 # break endless loops
+    
+    policy = policy[:][:6]
+    states_q = policy.state.values
+    
+    while (result not in ['win', 'lose']):
+        state = get_state(My_Map)
+
+        if counter > timeout_count:
+            result = 'lose'
+            break
+        
+        if state not in states_q: # if state not in q_table
+            move = random.choice(options)
+            
+        else:  # insert random noise to not end in loops, range(-.5, .5) * noise_range
+            rands = (np.random.rand(5) - .5) * noise_range   
+            idx_q = np.where(states_q == state)[0]
+            pvals =  policy.iloc[idx_q, 1:6].values[0]
+            #pvals = np.array(policy.loc[policy.state == state, opt_qcols].values[0])
+            pvals[np.isnan(pvals)] = 0
+            #print('pvals: ', pvals)
+            minval, maxval = min(pvals), max(pvals)
+            if (maxval > 0) & (maxval > minval): 
+                spread = maxval - minval
+                pvals = (pvals - minval) / spread
+                #print(pvals + rands)
+            move = options[np.argmax(pvals + rands)]
+            #print(state, '  pvals scaled: ', pvals.round(2), move)
+
+        states.append(state)
+        actions.append(move)
+        counter += 1
+        My_Map, result = make_move(My_Map, move)
+
+    ### End of game
+    score = get_score(counter, result, width) 
+
+    # game_data for q_table updates
+    game_data = pd.DataFrame({'state': states, 'action': actions, 'steps': 1}).groupby(['state', 'action']).count().fillna(0).reset_index()
+    game_data = game_data.pivot_table(index='state', columns=['action'], values='steps', fill_value=0).reset_index()
+    game_data['score'] = score
+    for opt in options:
+        game_data.rename(columns={ f'{opt}': f'num_{opt}'}, inplace=True)
+
+    # record for performance evaluation & comparison
+    record = pd.DataFrame({'time': str(datetime.now()), 
+            'width': width, 
+            'sight': sight, 
+            'num_mummies': mummies, 
+            'block_rate': int(blockers*100), 
+            'result': result, 
+            'num_steps': counter,
+            'score': score}, index=[0])
+    #print('Game result:', score, '# steps:', counter)
+    return record, game_data
+
+
+def run_random_games(n, wmax, wmin, sight, mmax, mmin, bmax, bmin,  G=None):
     games_data = pd.DataFrame(columns=['state', 'num_wait', 'num_up', 'num_down', 'num_left', 'num_right', 'score'])
     
     for i in tqdm(range(n)):
         width, sight, mummies, blockers = get_random_params(wmax, wmin, sight, mmax, mmin, bmax, bmin)
-        record, game_data = q_play('random', width, sight, mummies, blockers)
-        games_data = pd.concat((games_data, game_data), axis=0, join='outer', ignore_index=True)
-        
+        record, game_data = r_play(width, sight, mummies, blockers)
+        games_data = pd.concat((games_data, game_data), axis=0, join='outer', ignore_index=True).fillna(0)
+    if G is not None:
+        G.put(games_data)    
     return games_data
 
 
-def update_q_table(q_table, games_data, path):
+def run_q_noise_games(n, policy, noise, wmax, wmin, sight, mmax, mmin, bmax, bmin, G=None):
+    games_data = pd.DataFrame(columns=['state', 'num_wait', 'num_up', 'num_down', 'num_left', 'num_right', 'score'])
     
-    # load & backup    
-    q_tab = pd.read_csv(f'{path}{q_table}.csv')
-    q_tab.to_csv(f'{path}backup/{q_table}_{str(datetime.now())}.csv', index=False)
+    wins = 0
+    for i in tqdm(range(n)):
+        width, sight, mummies, blockers = get_random_params(wmax, wmin, sight, mmax, mmin, bmax, bmin)
+        #print('   run game ', i)
+        record, game_data = q_play(policy, width, sight, mummies, blockers, noise)
+        if record.result[0] == 'win': wins += 1
+        games_data = pd.concat((games_data, game_data), axis=0, join='outer', ignore_index=True).fillna(0)
+    print('Games won:', wins, 'out of', n, ', win rate:', round(wins / n / 100, 3), '%')       
+    if G is not None: G.put(games_data)    
+    return games_data
 
-    # update q_table
-    for i in tqdm(range(len(games_data))):    
-        
-        sta, nn_wa, nn_up, nn_do, nn_le, nn_ri, nn_score = games_data.iloc[i].values
-        nan, os_wa, os_up, os_do, os_le, os_ri, on_wa, on_up, on_do, on_le, on_ri = q_tab[q_tab.state == sta].values[0]
-        
-        if (on_wa + nn_wa) > 0: q_tab.loc[q_tab.state == sta, 'sco_wait'] = (os_wa * on_wa + nn_wa * nn_score) / (on_wa + nn_wa)
-        if (on_up + nn_up) > 0: q_tab.loc[q_tab.state == sta, 'sco_up'] = (os_up * on_up + nn_up * nn_score) / (on_up + nn_up)
-        if (on_do + nn_do) > 0: q_tab.loc[q_tab.state == sta, 'sco_down'] = (os_do * on_do + nn_do * nn_score) / (on_do + nn_do)
-        if (on_le + nn_le) > 0: q_tab.loc[q_tab.state == sta, 'sco_left'] = (os_le * on_le + nn_le * nn_score) / (on_le + nn_le)
-        if (on_ri + nn_ri) > 0: q_tab.loc[q_tab.state == sta, 'sco_right'] = (os_ri * on_ri + nn_ri * nn_score) / (on_ri + nn_ri)
 
-        q_tab.loc[q_tab.state == sta, 'num_wait'] += nn_wa if nn_wa > 0 else 0
-        q_tab.loc[q_tab.state == sta, 'num_up'] += nn_up if nn_up > 0 else 0
-        q_tab.loc[q_tab.state == sta, 'num_down'] += nn_do if nn_do > 0 else 0
-        q_tab.loc[q_tab.state == sta, 'num_left'] += nn_le if nn_le > 0 else 0
-        q_tab.loc[q_tab.state == sta, 'num_right'] += nn_ri if nn_ri > 0 else 0
+def explore_q_table(q_IN, games_data, Q):
+
+    n = games_data.shape[0]
+
+    for i in tqdm(range(n)):    
         
-    q_tab.to_csv(f'{path}{q_table}.csv', index=False)
+        g_data = games_data.iloc[i].values
+        sta = g_data[0]
+
+        if sta not in q_IN.state.values: 
+            sta, nn_wa, nn_up, nn_do, nn_le, nn_ri, nn_score = g_data
+            new_state = pd.DataFrame({
+                'state': [sta], 
+                'sco_wait': [nn_score], 'sco_up': [nn_score], 'sco_down': [nn_score], 'sco_left': [nn_score], 'sco_right': [nn_score],
+                'num_wait': [nn_wa], 'num_up': [nn_up], 'num_down': [nn_do], 'num_left': [nn_le], 'num_right': [nn_ri]})
+            
+            q_IN = pd.concat((q_IN, new_state), axis=0, ignore_index=True)      
+               
+        else:
+            q_data = q_IN[q_IN.state == sta].values[0]
+            #print('   q_data: ', q_data)
+            new_numbers = g_data[1:-1].astype(int)
+            new_score = g_data[-1]     
+            old_numbers = q_data[-5:].astype(int)
+            old_scores = q_data[-10:-5]     # idx, stat, (scores, numbers)
+            #print('   new_numbers: ', new_numbers, '   old_numbers: ', old_numbers)
+            #print('   new_score: ', new_score, '   old_scores: ', old_scores)
+            
+            # update counts
+            numbers = old_numbers + new_numbers
+            
+            # update scores
+            if numbers.all() > 0:
+                scores = (old_scores * old_numbers + new_score * new_numbers) / numbers  
+            else:
+                scores = [0, 0, 0, 0, 0]
+                for n in range(5):
+                    if new_numbers[n] > 0:
+                        scores[n] = (old_numbers[n] * old_scores[n] + new_numbers[n] * new_score) / numbers[n]
+                    else: 
+                        scores[n] = int(old_scores[n])
+                        
+            # update q_table
+            q_IN[q_IN.state == sta] = [sta, *scores, *numbers]
+
+    # clean up q_table
+    q_tab = q_IN.sort_values(by=['state'], ignore_index=True).drop_duplicates(subset=['state'], keep='first') 
+    if Q is not None: Q.put(q_tab)
     return q_tab
 
 
+def exploit_q_table(policy, games_data, alpha, Q=None):
+    
+    states = policy.state.values
+    policy = policy.fillna(0)
+      
+    for i in tqdm(range(len(games_data))):    
+        games = np.array(games_data.iloc[i].values)
+        sta, score = games[0], games[-1]                   # sta, nn_wa, nn_up, nn_do, nn_le, nn_ri, nn_score 
+        counts = games[1:-1]
+        
+        if sta not in states:  
+            entry = [sta, *[score * c for c in counts]]
+            entry = pd.DataFrame([entry], columns=policy.columns)
+            policy = pd.concat((policy, entry), axis=0, ignore_index=True)
+            
+        else:   
+            #print('policy before: ', policy.loc[policy.state == sta].values[0])
+            q_vals = policy[policy.state == sta].values[0][1:6]  # nan, os_wa, os_up, os_do, os_le, os_ri
+            #q_vals = [float(x) for x in q_vals]
+            updates = np.clip([q_vals + (alpha * counts) * (score - q_vals)], 0, 1)[0]
+            policy[policy.state == sta] = [sta, *updates]
+        
+    # clean up q_table
+    policy = policy.sort_values(by=['state'], ignore_index=True).drop_duplicates(subset=['state'], keep='first')  
+    #print('policy updated: ', policy.loc[policy.state == sta].values[0], '\n')
+               
+    if Q is not None: Q.put(policy)        
+    return policy

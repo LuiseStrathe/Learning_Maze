@@ -217,7 +217,7 @@ delta = round(-(human - rate / 100) / human * 100)
 col2.metric(label='**Random Baseline**', value=f'{rate} %', delta = f'{delta} % from human level')
 col2.write(f'*This is the win rate of a fully random agent*')
 
-rate = 41
+rate = 46
 delta = round(-(human - rate / 100) / human * 100)
 col3.metric(label='**Explored Q1**', value=f'{rate} %', delta = f'{delta} % from human level')
 col3.write(f'*This is the win rate of a Q-Learning agent*')

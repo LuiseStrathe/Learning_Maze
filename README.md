@@ -58,7 +58,7 @@ MODEL PERFORMANCE
 
 <br>
 
-1) The **greedy baseline model** is randomly choosing a move. It is not trained at all. It is just a baseline to compare the performance of the other models to.
+1) The **random baseline model** is randomly choosing a move. It is not trained at all. It is just a baseline to compare the performance of the other models to.
 
     WIN RATE:  **2 %** 
 
@@ -70,7 +70,7 @@ MODEL PERFORMANCE
 
     The pvalues for the moves come from fully random exploration (as in baseline) returning a match score. 
 
-    WIN RATE:  **41 %**
+    WIN RATE:  **46 %**
 
 <br> 
 
